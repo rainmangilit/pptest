@@ -1,5 +1,10 @@
 ﻿using api.Data;
+using api.MinimalApis;
 using api.Repositories;
+using api.Validators;
+using api.ViewModels;
+using FluentValidation;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,11 +30,11 @@ services.AddCors(options =>
 
 // ioc
 services.AddDbContext<DataContext>(options => options.UseInMemoryDatabase(databaseName: "Test"));
-
 services.AddScoped<DataSeeder>();
-services.AddScoped<IClientRepository, ClientRepository>();
 services.AddScoped<IEmailRepository, EmailRepository>();
 services.AddScoped<IDocumentRepository, DocumentRepository>();
+services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+services.AddScoped<IValidator<ClientVm>, ClientValidator>();
 
 var app = builder.Build();
 
@@ -41,11 +46,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapGet("/clients", async (IClientRepository clientRepository) =>
-{
-    return await clientRepository.Get();
-})
-.WithName("get clients");
+// Register APIs
+app.RegisterClientApi();
 
 app.UseCors();
 
@@ -56,6 +58,14 @@ using (var scope = app.Services.CreateScope())
 
     dataSeeder.Seed();
 }
+
+// error handling
+app.UseExceptionHandler(c => c?.Run(async context =>
+{
+    var exception = context.Features.Get<IExceptionHandlerPathFeature>()?.Error;
+    var response = new { error = exception?.Message ?? exception?.InnerException?.Message };
+    await context.Response.WriteAsJsonAsync(response);
+}));
 
 // run app
 app.Run();
