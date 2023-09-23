@@ -16,8 +16,8 @@ namespace api.Commands.Clients
         private readonly DataContext dataContext;
         private readonly IEmailRepository emailRepository;
         private readonly IDocumentRepository documentRepository;
-        private readonly Mapper _mapper;
-        private readonly IValidator<ClientVm> _validator;
+        private readonly Mapper mapper;
+        private readonly IValidator<ClientVm> validator;
 
         public UpdateClientCommandHandler(DataContext dataContext,
             IEmailRepository emailRepository,
@@ -27,13 +27,13 @@ namespace api.Commands.Clients
             this.dataContext = dataContext;
             this.emailRepository = emailRepository;
             this.documentRepository = documentRepository;
-            _mapper = MapperConfig.Initialize();
-            _validator = validator;
+            mapper = MapperConfig.Initialize();
+            this.validator = validator;
         }
 
         public async Task<Result?> Handle(UpdateClientCommand request, CancellationToken cancellationToken = default)
         {
-            var validationResult = await _validator.ValidateAsync(request.Client);
+            var validationResult = await validator.ValidateAsync(request.Client);
             if (!validationResult.IsValid)
             {
                 return new Result(validationResult.ToDictionary());
@@ -51,7 +51,7 @@ namespace api.Commands.Clients
                 await documentRepository.SyncDocumentsFromExternalSource(request.Client.Email);
             }
 
-            _mapper.Map(request.Client, existingClient);
+            mapper.Map(request.Client, existingClient);
 
             await dataContext.SaveChangesAsync(cancellationToken);
 

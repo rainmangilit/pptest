@@ -6,6 +6,7 @@ using api.ViewModels;
 using AutoMapper;
 using FluentValidation;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace api.Commands.Clients
 {
@@ -16,8 +17,8 @@ namespace api.Commands.Clients
         private readonly DataContext dataContext;
         private readonly IEmailRepository emailRepository;
         private readonly IDocumentRepository documentRepository;
-        private readonly Mapper _mapper;
-        private readonly IValidator<ClientVm> _validator;
+        private readonly Mapper mapper;
+        private readonly IValidator<ClientVm> validator;
 
         public AddClientCommandHandler(DataContext dataContext,
             IEmailRepository emailRepository,
@@ -27,19 +28,24 @@ namespace api.Commands.Clients
             this.dataContext = dataContext;
             this.emailRepository = emailRepository;
             this.documentRepository = documentRepository;
-            _mapper = MapperConfig.Initialize();
-            _validator = validator;
+            mapper = MapperConfig.Initialize();
+            this.validator = validator;
         }
 
         public async Task<Result> Handle(AddClientCommand request, CancellationToken cancellationToken = default)
         {
-            var validationResult = await _validator.ValidateAsync(request.Client);
+            var validationResult = await validator.ValidateAsync(request.Client);
             if (!validationResult.IsValid)
             {
                 return new Result(validationResult.ToDictionary());
             }
 
-            var client = _mapper.Map<Client>(request.Client);
+            if (await dataContext.Clients.AnyAsync(x => x.Id == request.Client.Id, cancellationToken: cancellationToken))
+            {
+                return new Result("Client already exist");
+            }
+
+            var client = mapper.Map<Client>(request.Client);
             await dataContext.AddAsync(client, cancellationToken);
             await emailRepository.Send(request.Client.Email, "Hi there - welcome to my Carepatron portal.");
             await documentRepository.SyncDocumentsFromExternalSource(request.Client.Email);

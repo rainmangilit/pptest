@@ -19,7 +19,8 @@ namespace api.Queries.Clients
         public async Task<IList<Client>> Handle(SearchClientQuery request, CancellationToken cancellationToken = default)
         {
             return await dataContext.Clients
-                .Where(x => x.FirstName.ToLower().Contains(request.Term) || x.LastName.ToLower().Contains(request.Term))
+                .Where(x => x.FirstName.ToLower().Contains(request.Term.ToLower())
+                || x.LastName.ToLower().Contains(request.Term.ToLower()))
                 .ToListAsync(cancellationToken);
         }
     }
